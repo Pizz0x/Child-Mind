@@ -80,19 +80,24 @@ parameters = { 'n_estimators': [50, 100],
     }
 tuned_model = GridSearchCV(model, parameters, cv=5, verbose=0)
 tuned_model.fit(X_train, y_train)
-
-print("Feature Importances:")
-print(tuned_model.best_estimator_.feature_importances_)
-
-print ("Best Score: {:.3f}".format(tuned_model.best_score_) )
 print ("Best Params: ", tuned_model.best_params_)
-
 test_acc = accuracy_score(y_true = y_test, y_pred = tuned_model.predict(X_test) )
 print ("Test Accuracy: {:.3f}".format(test_acc) )
 # basically a little better than the naive classifier
 
-from sklearn.metrics import ConfusionMatrixDisplay
+print("Feature Importances:")
+print(tuned_model.best_estimator_.feature_importances_)
+feature_names = new_X.columns.tolist()
 
+fig, ax = plt.subplots(figsize=(9, 4))
+ax.barh(range(new_X.shape[1]), tuned_model.best_estimator_.feature_importances_)
+ax.set_title("Feature Importances")
+ax.set_yticks(range(new_X.shape[1]))
+ax.set_yticklabels(feature_names)
+ax.invert_yaxis()  # Optional: to show the most important feature on top
+ax.grid()
+
+from sklearn.metrics import ConfusionMatrixDisplay
 
 ConfusionMatrixDisplay.from_estimator(
     estimator=tuned_model.best_estimator_,
