@@ -1,12 +1,10 @@
+# Let's now try to find a better model, we start by focusing on random forest. Indeed bagging can look like a good starting point but to improve it we should make models independent
+# With Random Forest, bagging is exploited to improve accuracy of base decision trees and each node is built on a small subset of the feature set to forces the algorithm to use different features than a basic decision tree
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-
-# We can see that even with a simple decision tree classifier, we get a perfect classifier. 
-# Unfortunately in the test set we have less features than in the training set, so to have a coherent predictor, I've decided to remove those features since in practice, they don't provide any help in the classification of the test set.
-# # # we can see that the features that are not included in the test set are the PCIAT features, that are 20-item scale that measures characteristics and behaviors associated with compulsive use of the Internet including compulsivity, escapism, and dependency
-# # # so it's better to process the cleaning without including the PCIAT features:
 
 df_train = pd.read_csv("data/train.csv")
 df_test = pd.read_csv("data/test.csv")
@@ -66,26 +64,23 @@ for i, col in enumerate(oh.get_feature_names_out()):
 
 feature_names = new_X.columns.tolist()
 
-# First Approach with a Decision Tree
+
 X_train, X_test, y_train, y_test = train_test_split( new_X, y, test_size=0.20, random_state=42)
-# print(y_train_80.value_counts())
 baseline_accuracy = y_train.value_counts().max() / y_train.value_counts().sum()
-print (f"Majority class accuracy: {baseline_accuracy:.3f}") # this is the accuracy of the naive classifier saying sii value is 0.0 all the time
+print (f"Majority class accuracy: {baseline_accuracy:.3f}")
 
-# we further split the train set to simulate an unseen test set on which we can tune/validate the algorithm hyper-parameters, to do that we use k-fold cross-validation since also some specific values in the validation set may affect the model performance and hyper parameter choices
-
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import accuracy_score
 
-# we tune the hyperparameter using the validation set -> automatic parameter tuning using Grid Search:
-model = DecisionTreeClassifier(class_weight='balanced') # give weight to the class that are inversely proportional to frequency
-parameters = {'max_leaf_nodes': [2, 5, 10, 30],
-    'max_depth': [3, 5, 10, None],
+model = RandomForestClassifier(class_weight='balanced')
+parameters = { 'n_estimators': [50, 100],
+    'max_leaf_nodes': [2, 5, 10, 30],
     'criterion': ['gini', 'entropy']
     }
 tuned_model = GridSearchCV(model, parameters, cv=5, verbose=0)
 tuned_model.fit(X_train, y_train)
+
 print("Feature Importances:")
 print(tuned_model.best_estimator_.feature_importances_)
 
@@ -105,5 +100,4 @@ ConfusionMatrixDisplay.from_estimator(
     cmap = 'Blues_r')
 
 plt.show()
-# from the confusion matrix, we can see that the class 0 have most of the instances, so class 0 and 1 have a larger impact on the final measure, so we gave a weight inversely proportional to frequency
-# in this way we have a lower accuracy but a model that can actually recognize the different classes
+# with the random forest we obtain a better model, but still with an accuracy that is very similiar to the majority class accuracy that is our baseline
