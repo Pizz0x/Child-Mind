@@ -118,14 +118,6 @@ print ("Test Accuracy: {:.3f}".format(test_acc) )
 # We can see that even with a simple decision tree classifier, we get a perfect classifier. 
 # Unfortunately in the test set we have less features than in the training set, so to have a coherent predictor, I've decided to remove those features since in practice, they don't provide any help in the classification of the test set.
 # # # we can see that the features that are not included in the t est set are the PCIAT features, that are 20-item scale that measures characteristics and behaviors associated with compulsive use of the Internet including compulsivity, escapism, and dependency
-# # # so it's better to reprocess the cleaning without including the PCIAT features.
-
-# # url = "data/test.csv"
-# # df_test = pd.read_csv(url)
-# # print(df_test.info())
+# # # so it's better to process the cleaning without including the PCIAT features.
 
 
-
-
-
-# Data : Basic -> always a value, 
