@@ -71,37 +71,45 @@ print (f"Majority class accuracy: {baseline_accuracy:.3f}")
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
+from sklearn.feature_selection import RFECV
 from sklearn.metrics import accuracy_score
 
-model = RandomForestClassifier(class_weight='balanced')
+base_model = RandomForestClassifier(class_weight='balanced')
+selector = RFECV(base_model, step=3, cv=5, scoring='accuracy', n_jobs=-1)
+selector.fit(X_train, y_train)
+X_train_subset = X_train.iloc[:, selector.support_]
+X_test_subset = X_test.iloc[:, selector.support_]
+
 parameters = { 'n_estimators': [50, 100],
     'max_leaf_nodes': [2, 5, 10, 30],
     'criterion': ['gini', 'entropy']
     }
-tuned_model = GridSearchCV(model, parameters, cv=5, verbose=0)
-tuned_model.fit(X_train, y_train)
-print ("Best Params: ", tuned_model.best_params_)
-test_acc = accuracy_score(y_true = y_test, y_pred = tuned_model.predict(X_test) )
-print ("Test Accuracy: {:.3f}".format(test_acc) )
+tuned_model = GridSearchCV(base_model, parameters, cv=5, n_jobs=-1)
+tuned_model.fit(X_train_subset, y_train)
+
+print("Selected Features: ", X_train_subset.columns.tolist())
+print("Best Params: ", tuned_model.best_params_)
+test_acc = accuracy_score(y_true = y_test, y_pred = tuned_model.predict(X_test_subset) )
+print("Test Accuracy: {:.3f}".format(test_acc) )
 # basically a little better than the naive classifier
 
 print("Feature Importances:")
 print(tuned_model.best_estimator_.feature_importances_)
-feature_names = new_X.columns.tolist()
+subset_feature_names = X_train_subset.columns.tolist()
 
 fig, ax = plt.subplots(figsize=(9, 4))
-ax.barh(range(new_X.shape[1]), tuned_model.best_estimator_.feature_importances_)
+ax.barh(range(X_train_subset.shape[1]), sorted(tuned_model.best_estimator_.feature_importances_)[::-1])
 ax.set_title("Feature Importances")
-ax.set_yticks(range(new_X.shape[1]))
-ax.set_yticklabels(feature_names)
-ax.invert_yaxis()  # Optional: to show the most important feature on top
+ax.set_yticks(range(X_train_subset.shape[1]))
+ax.set_yticklabels(np.array(subset_feature_names)[np.argsort(tuned_model.best_estimator_.feature_importances_)[::-1]])
+ax.invert_yaxis() 
 ax.grid()
 
 from sklearn.metrics import ConfusionMatrixDisplay
 
 ConfusionMatrixDisplay.from_estimator(
     estimator=tuned_model.best_estimator_,
-    X=X_test, y=y_test,
+    X=X_test_subset, y=y_test,
     cmap = 'Blues_r')
 
 plt.show()
