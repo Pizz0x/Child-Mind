@@ -101,4 +101,3 @@ ConfusionMatrixDisplay.from_estimator(
 
 plt.show()
 # with the random forest we obtain a better model, but still with an accuracy that is very similiar to the majority class accuracy that is our baseline
-a = 1
