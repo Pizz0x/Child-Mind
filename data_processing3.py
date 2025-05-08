@@ -19,6 +19,7 @@ features_toremove =  list(set(train_features) - set(test_features) - {'sii'})
 #### DATA PREPARATION
 #####################
 
+# since in the last data processing test we got an accuracy that is basically at the level of the baseline accuracy, we now want to try removing the rows and features that have a huge number of NaN column since they don't give us relevant insight in the data and tend to normalize data too much.
 del df_train['id']
 for col in features_toremove:
     del df_train[col]
@@ -31,6 +32,22 @@ cols = ['Physical-BMI','Physical-Height','Physical-Weight','Physical-Waist_Circu
 for col in cols:
     df_train[col] = df_train[col].fillna(df_train[f"{col}_avg"])
     del df_train[f"{col}_avg"]
+
+
+values = df_train.isna().sum()
+percentages = (df_train.isna().sum()/(len(df_train)/100)).round(1)
+nan_data = pd.DataFrame({
+    "number_of_nan" : values,
+    "percentages" : percentages
+})
+print(nan_data)
+# as we saw a lot of columns have an high percentage of NaN values, which can affect the accuracy of our predictor, so I've decided to drop them from our training set.
+# I've also decided to try deleting also the rows with an high percentage of NaN values, let's see what happen:
+max_nan_c = int(df_train.shape[0] * 0.5)
+max_nan_r = int(df_train.shape[1] * 0.5)
+df_train = df_train.dropna(axis=1, thresh=max_nan_c)
+df_train = df_train.dropna(thresh=max_nan_r)
+print(df_train.shape)
 
 
 X = df_train.iloc[:, :-1]
@@ -80,14 +97,19 @@ print (f"Majority class accuracy: {baseline_accuracy:.3f}") # this is the accura
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import accuracy_score
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import GridSearchCV
+
+
+model = RandomForestClassifier()
 
 # we tune the hyperparameter using the validation set -> automatic parameter tuning using Grid Search:
-model = DecisionTreeClassifier() # give weight to the class that are inversely proportional to frequency
-parameters = {'max_leaf_nodes': [2, 5, 10, 30],
-    'max_depth': [3, 5, 10, None],
+#model = DecisionTreeClassifier() # give weight to the class that are inversely proportional to frequency
+parameters = { 'n_estimators': [50, 100],
+    'max_leaf_nodes': [2, 5, 10, 30],
     'criterion': ['gini', 'entropy']
     }
-tuned_model = GridSearchCV(model, parameters, cv=5, verbose=0)
+tuned_model = GridSearchCV(model, parameters, cv=5, n_jobs=-1)
 tuned_model.fit(X_train, y_train)
 print("Feature Importances:")
 print(tuned_model.best_estimator_.feature_importances_)

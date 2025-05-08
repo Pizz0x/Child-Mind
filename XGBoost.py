@@ -1,5 +1,3 @@
-# Let's now try to find a better model, we start by focusing on random forest. Indeed bagging can look like a good starting point but to improve it we should make models independent
-# With Random Forest, bagging is exploited to improve accuracy of base decision trees and each node is built on a small subset of the feature set to forces the algorithm to use different features than a basic decision tree
 
 import numpy as np
 import pandas as pd
@@ -71,46 +69,52 @@ X_train, X_test, y_train, y_test = train_test_split( new_X, y, test_size=0.20, r
 baseline_accuracy = y_train.value_counts().max() / y_train.value_counts().sum()
 print (f"Majority class accuracy: {baseline_accuracy:.3f}")
 
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
 from sklearn.feature_selection import RFECV
 from sklearn.metrics import accuracy_score
+from xgboost import XGBClassifier
 
-base_model = RandomForestClassifier(class_weight='balanced')
+# Create the model for multiclass
+model = XGBClassifier(
+    objective='multi:softprob',  # Multiclass: probability distribution output
+    num_class=4,                 # Number of classes (0,1,2,3 -> 4 classes)
+    eval_metric='mlogloss',      # Multiclass log loss
+    use_label_encoder=False,     # Avoid old warning
+    n_jobs=-1,                   # Use all cores
+    random_state=42,              # Reproducibility
+    n_estimators=100,
+    learning_rate=0.1,
+    max_depth=7
+)
 # selector = RFECV(base_model, step=3, cv=5, scoring='accuracy', n_jobs=-1)
 # selector.fit(X_train, y_train)
 # X_train_subset = X_train.iloc[:, selector.support_]
 # X_test_subset = X_test.iloc[:, selector.support_]
 
-parameters = { 'n_estimators': [50, 100],
-    'max_leaf_nodes': [2, 5, 10, 30],
-    'criterion': ['gini', 'entropy']
-    }
-tuned_model = GridSearchCV(base_model, parameters, cv=5, n_jobs=-1)
-tuned_model.fit(X_train, y_train)
+model.fit(X_train, y_train)
 
-print("Selected Features: ", X_train.columns.tolist())
-print("Best Params: ", tuned_model.best_params_)
-test_acc = accuracy_score(y_true = y_test, y_pred = tuned_model.predict(X_test) )
+# print("Selected Features: ", X_train.columns.tolist())
+# print("Best Params: ", model.best_params_)
+test_acc = accuracy_score(y_true = y_test, y_pred = model.predict(X_test) )
 print("Test Accuracy: {:.3f}".format(test_acc) )
 # basically a little better than the naive classifier
 
-print("Feature Importances:")
-print(tuned_model.best_estimator_.feature_importances_)
-subset_feature_names = X_train.columns.tolist()
+# print("Feature Importances:")
+# print(model.best_estimator_.feature_importances_)
+# subset_feature_names = X_train.columns.tolist()
 
-fig, ax = plt.subplots(figsize=(9, 4))
-ax.barh(range(X_train.shape[1]), sorted(tuned_model.best_estimator_.feature_importances_)[::-1])
-ax.set_title("Feature Importances")
-ax.set_yticks(range(X_train.shape[1]))
-ax.set_yticklabels(np.array(subset_feature_names)[np.argsort(tuned_model.best_estimator_.feature_importances_)[::-1]])
-ax.invert_yaxis() 
-ax.grid()
+# fig, ax = plt.subplots(figsize=(9, 4))
+# ax.barh(range(X_train.shape[1]), sorted(tuned_model.best_estimator_.feature_importances_)[::-1])
+# ax.set_title("Feature Importances")
+# ax.set_yticks(range(X_train.shape[1]))
+# ax.set_yticklabels(np.array(subset_feature_names)[np.argsort(tuned_model.best_estimator_.feature_importances_)[::-1]])
+# ax.invert_yaxis() 
+# ax.grid()
 
 from sklearn.metrics import ConfusionMatrixDisplay
 
 ConfusionMatrixDisplay.from_estimator(
-    estimator=tuned_model.best_estimator_,
+    estimator=model,
     X=X_test, y=y_test,
     cmap = 'Blues_r')
 

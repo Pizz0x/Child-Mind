@@ -1,6 +1,4 @@
-# Let's now try to find a better model, we start by focusing on random forest. Indeed bagging can look like a good starting point but to improve it we should make models independent
-# With Random Forest, bagging is exploited to improve accuracy of base decision trees and each node is built on a small subset of the feature set to forces the algorithm to use different features than a basic decision tree
-
+# Let's now try to compare our Random Forest Classifier with a new model that is beyond scikit-learn
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -51,17 +49,18 @@ categorical_X = X.iloc[:, categorical_idx]
 imputer = SimpleImputer(strategy='most_frequent')
 X_array = imputer.fit_transform(categorical_X)
 categorical_X = pd.DataFrame(X_array, columns=categorical_X.columns, index=categorical_X.index)
+new_X = pd.concat([new_X, categorical_X], axis=1)
 
+# # we do not need to encode categorical features with CatBoost
+# from sklearn.preprocessing import OneHotEncoder
 
-from sklearn.preprocessing import OneHotEncoder
+# oh = OneHotEncoder(sparse_output=False)
+# oh.fit(categorical_X)
 
-oh = OneHotEncoder(sparse_output=False)
-oh.fit(categorical_X)
-
-encoded = oh.transform(categorical_X)
-for i, col in enumerate(oh.get_feature_names_out()):
-    new_X = new_X.copy()
-    new_X[col] = encoded[:, i]
+# encoded = oh.transform(categorical_X)
+# for i, col in enumerate(oh.get_feature_names_out()):
+#     new_X = new_X.copy()
+#     new_X[col] = encoded[:, i]
 
 
 feature_names = new_X.columns.tolist()
@@ -71,46 +70,44 @@ X_train, X_test, y_train, y_test = train_test_split( new_X, y, test_size=0.20, r
 baseline_accuracy = y_train.value_counts().max() / y_train.value_counts().sum()
 print (f"Majority class accuracy: {baseline_accuracy:.3f}")
 
-from sklearn.ensemble import RandomForestClassifier
+from catboost import CatBoostClassifier
 from sklearn.model_selection import GridSearchCV
 from sklearn.feature_selection import RFECV
 from sklearn.metrics import accuracy_score
 
-base_model = RandomForestClassifier(class_weight='balanced')
+cat_features = X.columns[categorical_idx].tolist() # specified the names of the categorical features since they are passed to the model separately
+base_model = CatBoostClassifier(iterations=1000, 
+    depth=8, loss_function='MultiClass', learning_rate=0.05, cat_features=cat_features, early_stopping_rounds=50) # MultiClass loss function since we have 4 possible class
+
 # selector = RFECV(base_model, step=3, cv=5, scoring='accuracy', n_jobs=-1)
 # selector.fit(X_train, y_train)
 # X_train_subset = X_train.iloc[:, selector.support_]
 # X_test_subset = X_test.iloc[:, selector.support_]
 
-parameters = { 'n_estimators': [50, 100],
-    'max_leaf_nodes': [2, 5, 10, 30],
-    'criterion': ['gini', 'entropy']
-    }
-tuned_model = GridSearchCV(base_model, parameters, cv=5, n_jobs=-1)
-tuned_model.fit(X_train, y_train)
+base_model.fit(X_train, y_train)
 
-print("Selected Features: ", X_train.columns.tolist())
-print("Best Params: ", tuned_model.best_params_)
-test_acc = accuracy_score(y_true = y_test, y_pred = tuned_model.predict(X_test) )
+# print("Selected Features: ", X_train.columns.tolist())
+#print("Best Params: ", tuned_model.best_params_)
+test_acc = accuracy_score(y_true = y_test, y_pred = base_model.predict(X_test) )
 print("Test Accuracy: {:.3f}".format(test_acc) )
 # basically a little better than the naive classifier
 
-print("Feature Importances:")
-print(tuned_model.best_estimator_.feature_importances_)
-subset_feature_names = X_train.columns.tolist()
+# print("Feature Importances:")
+# print(base_model.get_feature_importance())
+# subset_feature_names = X_train.columns.tolist()
 
-fig, ax = plt.subplots(figsize=(9, 4))
-ax.barh(range(X_train.shape[1]), sorted(tuned_model.best_estimator_.feature_importances_)[::-1])
-ax.set_title("Feature Importances")
-ax.set_yticks(range(X_train.shape[1]))
-ax.set_yticklabels(np.array(subset_feature_names)[np.argsort(tuned_model.best_estimator_.feature_importances_)[::-1]])
-ax.invert_yaxis() 
-ax.grid()
+# fig, ax = plt.subplots(figsize=(9, 4))
+# ax.barh(range(X_train.shape[1]), sorted(base_model.get_feature_importance())[::-1])
+# ax.set_title("Feature Importances")
+# ax.set_yticks(range(X_train.shape[1]))
+# ax.set_yticklabels(np.array(subset_feature_names)[np.argsort(base_model.get_feature_importance())[::-1]])
+# ax.invert_yaxis() 
+# ax.grid()
 
 from sklearn.metrics import ConfusionMatrixDisplay
 
 ConfusionMatrixDisplay.from_estimator(
-    estimator=tuned_model.best_estimator_,
+    estimator=base_model,
     X=X_test, y=y_test,
     cmap = 'Blues_r')
 
